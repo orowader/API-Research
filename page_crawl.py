@@ -239,12 +239,12 @@ def get_qos(file, qos_dict):
 
         if page is None:
             page_alive = False
-            
+
         else:
             prodMet = page.find('div', class_ = 'ProductMetrics')
             metrics = prodMet.find_all('div', class_ = 'Metric')
-            number = ' '
             for metric in metrics:
+                number = ''
                 name = metric.find('div', class_= 'Label').text
                 name = name[1: len(name)]
                 number += metric.find('h2').text
