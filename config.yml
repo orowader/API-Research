@@ -1,0 +1,3 @@
+paths:
+  dictionary: "data/dictionary"
+  corpus: "data/corpus"
