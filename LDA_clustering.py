@@ -1,13 +1,36 @@
 """
 Collection of functions used by Owen Rowader to transform data scraped from RapidAPI
 into a functioning LDA model that is able to recommend
-similar APIs based on a user query 
+similar APIs based on a user query
 
 The libraries used can be seen below
+
+IN ORDER TO RUN:
+
+NEED:
+
+* 'data' FOLDER IN PROJECT FOLDER 
+* 'models' FOLDER IN PROJECT FOLDER
+* DOWNLOAD FILE 'final_rapid.csv' AND HAVE FILE IN PROJECT FOLDER
+* DOWNLOAD 'config.yaml' AND HAVE FILE IN PROJECT FOLDER
+* DOWNLOAD 'page_crawl.py' AND HAVE FILE IN PROJECT FOLDER
+* HAVE ALL LIBRAIRES INCLUDED BELOW AND IN 'page_crawl.py' DOWNLOADED
+
+With all these completed you can uncomment the code containing the format_data(),
+load_dict_corp(), and optimal_lda_config() functions and run the program.
+
+It should generate all models and info needed and the recommender should
+run correctly after.
+
+If you do not want to run those functions, and just want to run the recommender
+you can download the 'data' and 'model' folders and the 'LDA_formatted_apis.csv'
+file from github, put it into your project folder, and just run the recommender.
+Assuming you still followed the other steps (remove the old data and model folders
+before moving in the new ones)
 """
 
-import pandas as pd 
-import gensim 
+import pandas as pd
+import gensim
 from gensim import models, similarities
 from gensim.utils import simple_preprocess
 from gensim.parsing.preprocessing import STOPWORDS
@@ -15,9 +38,9 @@ from nltk.stem import WordNetLemmatizer, SnowballStemmer
 from nltk.stem.porter import *
 import numpy as np
 import os
-import yaml 
+import yaml
 import random
-import pickle   
+import pickle
 import matplotlib.pyplot as plt
 import page_crawl as pc
 import seaborn as sns
@@ -29,20 +52,20 @@ nltk.download('wordnet')
 #needed to change the 'final_rapid.csv' into a file where the
 #API's are indexed and their descriptions and methods are contained in one entry
 def format_data():
-    new_dict = {} 
+    new_dict = {}
     headers = ['index', 'api_name', 'api_url', 'api_category', 'api_desc + api_methods']
 
-    #store final rapid as a list 
-    initial_list = pc.csv_to_list('final_rapid.csv') 
+    #store final rapid as a list
+    initial_list = pc.csv_to_list('final_rapid.csv')
     i = 1
 
     #create dictionary in the format we want
     while i < len(initial_list):
-        new_cat = initial_list[i][3] + " " + initial_list[i][4] 
+        new_cat = initial_list[i][3] + " " + initial_list[i][4]
         new_dict[i-1] = [i-1, initial_list[i][0], initial_list[i][1], initial_list[i][2], new_cat]
         print(new_dict[i-1])
         i +=1
-    
+
     #write formatted csv
     pc.write_to_csv(new_dict, headers, 'LDA_formatted_apis.csv')
 
@@ -53,8 +76,8 @@ def lemmatize_stemming(text):
     return stemmer.stem(WordNetLemmatizer().lemmatize(text, pos='v'))
 
 #Function taken from: https://github.com/susanli2016/NLP-with-Python/blob/master/LDA_news_headlines.ipynb
-#performs tokenization on text, removes stopwords, lemmatizes text, and removes words with 
-#fewer than 3 characters 
+#performs tokenization on text, removes stopwords, lemmatizes text, and removes words with
+#fewer than 3 characters
 def preprocess(text):
     result = []
     for token in gensim.utils.simple_preprocess(text):
@@ -73,7 +96,7 @@ def jaccard_similarity(query, document):
     return float(len(intersection))/float(len(union))
 
 #Function taken from: https://towardsdatascience.com/lets-build-an-article-recommender-using-lda-f22d71b7143e
-#caculates a similarity matrix between a given query and our LDA model 
+#caculates a similarity matrix between a given query and our LDA model
 def get_similarity(lda, corpus, query_vector):
         index = similarities.MatrixSimilarity(lda[corpus])
         sims = index[query_vector]
@@ -120,7 +143,7 @@ def create_dict_corpus():
     #pre-process the docs
     processed_docs = documents['api_desc + api_methods'].map(preprocess)
 
-    #generate a bag of words on the data 
+    #generate a bag of words on the data
     dictionary = gensim.corpora.Dictionary(processed_docs)
 
     #Filter out tokens that appear in
@@ -132,7 +155,7 @@ def create_dict_corpus():
     #generare corpus
     bow_corpus = [dictionary.doc2bow(doc) for doc in processed_docs]
 
-    #save the dictionary and corpus 
+    #save the dictionary and corpus
     with open(DICTIONARY_PATH, 'wb') as fp:
         pickle.dump(dictionary, fp)
     fp.close()
@@ -141,26 +164,26 @@ def create_dict_corpus():
     fp.close()
 
 #Methods used in function taken from: https://humboldt-wi.github.io/blog/research/information_systems_1819/is_lda_final/
-#Using the dictionary and corpus generated in create_dict_corpus() we now generate multiple LDA 
+#Using the dictionary and corpus generated in create_dict_corpus() we now generate multiple LDA
 #models and store their info in the models folder.
 #
 #We then run a test using jaccard similarity between the topics in the models, and plot the data
-#Models with the lower jaccard score are usually better 
+#Models with the lower jaccard score are usually better
 def optimal_lda_config():
     project_folder = os.getcwd()
 
-    dictionary, bow_corpus = load_dict_corp() 
+    dictionary, bow_corpus = load_dict_corp()
 
-    #LDA will be generated with these numbers of topics 
+    #LDA will be generated with these numbers of topics
     topicnums = [ 60, 70, 80, 85,  90, 95, 100, 105, 110]
 
-    #generate and save models 
+    #generate and save models
     #For the upcoming LDA model, we'll need to understand the following:
     #
     #num_topics: number of requested latent topics to be extracted from the training corpus.
     #passes: number of passes through the corpus during training.
     #update_every: number of documents to be iterated through for each update. 1 = iterative learning.
-    #random state is 42, like in the article 
+    #random state is 42, like in the article
     ldamodels_bow = {}
     for i in topicnums:
         random.seed(42)
@@ -168,7 +191,7 @@ def optimal_lda_config():
             ldamodels_bow[i] = models.LdaModel(bow_corpus, num_topics=i, random_state=42, update_every=1, passes=10, id2word=dictionary)
             ldamodels_bow[i].save(project_folder+'/models/ldamodels_bow_'+str(i)+'.lda')
             print('ldamodels_bow_{}.lda created.'.format(i))
-        else: 
+        else:
             print('ldamodels_bow_{}.lda already exists.'.format(i))
 
     lda_topics = {}
@@ -187,10 +210,10 @@ def optimal_lda_config():
         for t1,topic1 in enumerate(lda_topics[topicnums[i]]):
             sims = []
             for t2,topic2 in enumerate(lda_topics[topicnums[i+1]]):
-                sims.append(jaccard_similarity(topic1,topic2))    
-            jacc_sims.append(sims)    
+                sims.append(jaccard_similarity(topic1,topic2))
+            jacc_sims.append(sims)
         lda_stability[topicnums[i]] = jacc_sims
-    
+
     pickle.dump(lda_stability,open(project_folder+'/models/pub_lda_bow_stability.pkl','wb'))
 
     #plot to find eblow point and decide optimal # of topics
@@ -205,44 +228,44 @@ def optimal_lda_config():
         plt.xlim([40, 130])
         plt.ylim([0, 0.25])
         plt.xlabel('Number of topics')
-        plt.ylabel('Average Jaccard similarity')   
+        plt.ylabel('Average Jaccard similarity')
         plt.title('Average Jaccard Similarity Between Topics')
-        plt.legend()    
+        plt.legend()
         plt.show()
 
 
 #Methods used in function taken from: https://towardsdatascience.com/lets-build-an-article-recommender-using-lda-f22d71b7143e
 #Given a valid # of topics, it loads the LDA generated from that # earlier in optimal_lda_config()
-#The user is then able to run a query against that model, and get a number of similar APIs based on that query 
+#The user is then able to run a query against that model, and get a number of similar APIs based on that query
 def recommender(num_topics):
     project_folder = os.getcwd()
 
     #used to get API anmes after recommender generates indexes
-    api_list = [] 
-    api_list = pc.csv_to_list('final_rapid.csv') 
+    api_list = []
+    api_list = pc.csv_to_list('final_rapid.csv')
 
-    #load info needed 
-    dictionary, bow_corpus = load_dict_corp() 
+    #load info needed
+    dictionary, bow_corpus = load_dict_corp()
     lda_model_final = models.LdaModel.load(project_folder +'/models/ldamodels_bow_'+str(num_topics)+'.lda')
 
-    
-    while True: 
+
+    while True:
         search_arg = input('\n\nPlease enter your search terms: ')
 
-        #Pre-process query same way we did the original data 
-        search_arg = preprocess(search_arg) 
+        #Pre-process query same way we did the original data
+        search_arg = preprocess(search_arg)
 
-        #create a bow from query 
+        #create a bow from query
         words = dictionary.doc2bow(search_arg)
 
-        #show top identified words 
+        #show top identified words
         print("\n\n Top words identified: ")
         for word in words:
             print("{} {}".format(word[0], dictionary[word[0]]))
 
         #generate a query vector using the words
         #then generate a similiarity matrix from the LDA and corpus
-        #then display in descending order from most similar 
+        #then display in descending order from most similar
         query_vector = lda_model_final[words]
         sims = get_similarity(lda_model_final, bow_corpus, query_vector)
         sims = sorted(enumerate(sims), key=lambda item: -item[1])
@@ -259,7 +282,7 @@ def recommender(num_topics):
 
 
 #If this is the first time running this program, run these functions first
-#Otherwise, keep them commented out and just run the recommender 
+#Otherwise, keep them commented out and just run the recommender
 """
 format_data()
 
